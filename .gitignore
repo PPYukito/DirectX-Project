@@ -1,0 +1,83 @@
+# ===========================================================
+#  Visual Studio
+# ===========================================================
+
+# IDE cache / IntelliSense database (per machine)
+.vs/
+ipch/
+*.VC.db
+*.VC.opendb
+*.sdf
+*.opensdf
+*.suo
+
+# Per-user project settings (debugger args, working dir, etc.)
+*.user
+*.userosscache
+*.sln.docstates
+
+# ===========================================================
+#  Build output
+# ===========================================================
+
+# Output / intermediate folders (solution and project level)
+[Xx]64/
+[Xx]86/
+[Ww]in32/
+[Aa][Rr][Mm]64/
+[Dd]ebug/
+[Rr]elease/
+[Bb]in/
+[Oo]bj/
+[Bb]uild/
+[Ll]og/
+
+# Compiler / linker intermediates
+# NOTE: *.obj is NOT ignored globally because .obj is also a 3D model format.
+# Compiled object files already live inside the ignored build folders above.
+*.pch
+*.ipch
+*.idb
+*.pdb
+*.ilk
+*.iobj
+*.ipdb
+*.exp
+*.lib
+*.tlog
+*.lastbuildstate
+*.recipe
+*.res
+*.log
+
+# Executables
+*.exe
+*.dll
+
+# Compiled shaders (rebuilt from .hlsl)
+*.cso
+
+# ===========================================================
+#  Assets / tools
+# ===========================================================
+
+# Blender backup files
+*.blend1
+*.blend2
+
+# Photoshop / Krita temporary files
+*.psb~
+*.kra~
+
+# ===========================================================
+#  OS / misc
+# ===========================================================
+
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+*.tmp
+*.bak
+*~

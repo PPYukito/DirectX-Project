@@ -9,6 +9,7 @@ int main()
 		return -1;
 
 	app.Run();
+	app.Shutdown();
 
 	return 0;
 

@@ -1,5 +1,9 @@
 #include "Application.h"
+#include "DXUtils.h"
 
+#include <fstream>
+
+// ---------------------------------------------------------------
 #pragma region Lifecycle
 
 bool Application::Initialize()
@@ -70,6 +74,7 @@ void Application::Run()
 			DispatchMessageW(&msg);
 		}
 
+		// --- Draw the frame ---
 		if (m_IsRunning)
 		{
 			Render();
@@ -79,25 +84,15 @@ void Application::Run()
 
 void Application::Shutdown()
 {
-	// --- Release DirectX objects (reverse order of creation) ---
-	{
-		if (m_RenderTargetView)
-			m_RenderTargetView->Release();
-
-		if (m_SwapChain)
-			m_SwapChain->Release();
-
-		if (m_DeviceContext)
-			m_DeviceContext->Release();
-
-		if (m_Device)
-			m_Device->Release();
-
-		m_RenderTargetView = nullptr;
-		m_SwapChain = nullptr;
-		m_DeviceContext = nullptr;
-		m_Device = nullptr;
-	}
+	// --- Release DirectX objects (exact reverse of the member list in Application.h) ---
+	SafeRelease(m_VertexBuffer);
+	SafeRelease(m_InputLayout);
+	SafeRelease(m_PixelShader);
+	SafeRelease(m_VertexShader);
+	SafeRelease(m_RenderTargetView);
+	SafeRelease(m_SwapChain);
+	SafeRelease(m_DeviceContext);
+	SafeRelease(m_Device);
 
 	// --- Destroy the window (created first, destroyed last) ---
 	if (m_Window)
@@ -108,6 +103,7 @@ void Application::Shutdown()
 }
 
 #pragma endregion
+
 
 #pragma region Window
 
@@ -140,9 +136,28 @@ LRESULT Application::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
 
 #pragma endregion
 
-#pragma region DirectX
+
+#pragma region DirectX - Setup
 
 bool Application::InitDirectX()
+{
+	// Each step needs the one before it, so stop at the first failure
+	if (!CreateDeviceAndSwapChain())
+		return false;
+
+	if (!CreateRenderTarget())
+		return false;
+
+	if (!LoadShaders())
+		return false;
+
+	if (!CreateVertexBuffer())
+		return false;
+
+	return true;
+}
+
+bool Application::CreateDeviceAndSwapChain()
 {
 	// --- 1. Describe the swap chain (2 window-sized canvases that flip) ---
 	DXGI_SWAP_CHAIN_DESC scd{};
@@ -179,9 +194,14 @@ bool Application::InitDirectX()
 		return false;
 	}
 
-	// --- 3. Get the back buffer (the canvas we draw into) ---
+	return true;
+}
+
+bool Application::CreateRenderTarget()
+{
+	// --- 1. Get the back buffer (the canvas we draw into) ---
 	ID3D11Texture2D* backBuffer = nullptr;
-	hr = m_SwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), reinterpret_cast<void**>(&backBuffer));
+	HRESULT hr = m_SwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), reinterpret_cast<void**>(&backBuffer));
 
 	if (FAILED(hr))
 	{
@@ -189,12 +209,11 @@ bool Application::InitDirectX()
 		return false;
 	}
 
-	// --- 4. Create the render target view (make the canvas "paintable") ---
+	// --- 2. Create the render target view (make the canvas "paintable") ---
 	hr = m_Device->CreateRenderTargetView(backBuffer, nullptr, &m_RenderTargetView);
 
 	// The view keeps its own reference, so we're done with ours (release before the check, so no leak on failure)
-	backBuffer->Release();
-	backBuffer = nullptr;
+	SafeRelease(backBuffer);
 
 	if (FAILED(hr))
 	{
@@ -205,9 +224,168 @@ bool Application::InitDirectX()
 	return true;
 }
 
+bool Application::LoadShaders()
+{
+	// --- 1. Load the vertex shader ---
+	// vsBytes is kept until the end of this function: the input layout (step 3) needs it too
+	std::vector<char> vsBytes;
+	if (!LoadShaderFile(L"Shaders\\VertexShader.cso", vsBytes))
+	{
+		MessageBox(nullptr, L"Failed to load vertex shader.", L"Error", MB_OK | MB_ICONERROR);
+		return false;
+	}
+
+	HRESULT hr = m_Device->CreateVertexShader(vsBytes.data(), vsBytes.size(), nullptr, &m_VertexShader);
+
+	if (FAILED(hr))
+	{
+		MessageBox(nullptr, L"Failed to create vertex shader.", L"Error", MB_OK | MB_ICONERROR);
+		return false;
+	}
+
+	// --- 2. Load the pixel shader ---
+	std::vector<char> psBytes;
+	if (!LoadShaderFile(L"Shaders\\PixelShader.cso", psBytes))
+	{
+		MessageBox(nullptr, L"Failed to load pixel shader.", L"Error", MB_OK | MB_ICONERROR);
+		return false;
+	}
+
+	hr = m_Device->CreatePixelShader(psBytes.data(), psBytes.size(), nullptr, &m_PixelShader);
+
+	if (FAILED(hr))
+	{
+		MessageBox(nullptr, L"Failed to create pixel shader.", L"Error", MB_OK | MB_ICONERROR);
+		return false;
+	}
+
+	// --- 3. Create the input layout (tell the GPU how to read our vertex data) ---
+	D3D11_INPUT_ELEMENT_DESC layoutDesc[] =
+	{
+		{ "POSITION", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+	};
+
+	hr = m_Device->CreateInputLayout(
+		layoutDesc,
+		1,
+		vsBytes.data(),
+		vsBytes.size(),
+		&m_InputLayout
+	);
+
+	if (FAILED(hr))
+	{
+		MessageBox(nullptr, L"Failed to create input layout.", L"Error", MB_OK | MB_ICONERROR);
+		return false;
+	}
+
+	return true;
+}
+
+bool Application::CreateVertexBuffer()
+{
+	struct Vertex
+	{
+		float x;
+		float y;
+	};
+
+	Vertex vertices[] =
+	{
+		{  0.0f,    0.5f },   // top
+		{  0.325f, -0.5f },   // bottom right  (0.577 (tan60) * (1080 / 1920), aspect corrected)
+		{ -0.325f, -0.5f },   // bottom left
+	};
+
+	// --- Describe the buffer (size, usage, bind flags) ---
+	D3D11_BUFFER_DESC bufferDesc{
+		sizeof(vertices),
+		D3D11_USAGE_IMMUTABLE,
+		D3D11_BIND_VERTEX_BUFFER,
+		0
+	};
+
+	D3D11_SUBRESOURCE_DATA initData{};
+	initData.pSysMem = vertices;
+
+	HRESULT hr = m_Device->CreateBuffer(&bufferDesc, &initData, &m_VertexBuffer);
+
+	if (FAILED(hr))
+	{
+		MessageBox(nullptr, L"Failed to create vertex buffer.", L"Error", MB_OK | MB_ICONERROR);
+		return false;
+	}
+
+	m_VertexCount = ARRAYSIZE(vertices);
+
+	// Return
+	return true;
+}
+
+bool Application::LoadShaderFile(const wchar_t* path, std::vector<char>& outBytes)
+{
+	std::ifstream file(path, std::ios::binary | std::ios::ate);
+
+	if (!file)
+		return false;
+
+	std::streamsize size = file.tellg();
+
+	file.seekg(0);
+
+	outBytes.resize(size);
+
+	file.read(outBytes.data(), size);
+
+	return true;
+}
+
+#pragma endregion
+
+
+#pragma region DirectX - Every frame
+
 void Application::Render()
 {
-	m_DeviceContext->ClearRenderTargetView(m_RenderTargetView, bgColor);
+	// --- Viewport: draw into the whole client area ---
+	RECT rect{};
+	if (!GetClientRect(m_Window, &rect))
+		return;
+
+	D3D11_VIEWPORT viewport{};
+	viewport.TopLeftX = 0.0f;
+	viewport.TopLeftY = 0.0f;
+	viewport.Width = static_cast<float>(rect.right - rect.left);
+	viewport.Height = static_cast<float>(rect.bottom - rect.top);
+	viewport.MinDepth = 0.0f;
+	viewport.MaxDepth = 1.0f;
+
+	m_DeviceContext->RSSetViewports(1, &viewport);
+
+	// --- Plug in the canvas (Present unplugs it every frame with the flip model) ---
+	m_DeviceContext->OMSetRenderTargets(1, &m_RenderTargetView, nullptr);
+
+	// --- Clear, (draw), present ---
+	m_DeviceContext->ClearRenderTargetView(m_RenderTargetView, m_BgColor);
+
+	// --- Draw the triangle ---
+	// Input Assembler (IA): the first pipeline stage, it reads vertices out of the vertex buffer.
+	// Tell it how ONE vertex looks (the layout) and where the vertices are (the buffer).
+	m_DeviceContext->IASetInputLayout(m_InputLayout);
+	UINT stride = sizeof(float) * 2; // 2 floats per vertex (x, y): jump 8 bytes to reach the next vertex
+	UINT offset = 0;                 // start reading at the beginning of the buffer
+	m_DeviceContext->IASetVertexBuffers(0, 1, &m_VertexBuffer, &stride, &offset); // slot 0, 1 buffer
+
+	// How to connect the vertices: every 3 vertices = 1 separate triangle
+	m_DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+	// Which GPU programs to run: vertex shader (where each corner goes), pixel shader (color of each pixel)
+	m_DeviceContext->VSSetShader(m_VertexShader, nullptr, 0);
+	m_DeviceContext->PSSetShader(m_PixelShader, nullptr, 0);
+
+	// Go: run the whole pipeline with everything set above
+	m_DeviceContext->Draw(m_VertexCount, 0); // Draw the specified number of vertices, starting from vertex 0
+
 	m_SwapChain->Present(1, 0);
 }
 

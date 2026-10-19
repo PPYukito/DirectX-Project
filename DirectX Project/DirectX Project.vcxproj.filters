@@ -8,6 +8,9 @@
     <Filter Include="Source Files\Core">
       <UniqueIdentifier>{983bfcc9-8891-4bf1-99da-37aa7602c2de}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Shaders">
+      <UniqueIdentifier>{85709dc4-e7fd-4283-9c81-610a11d2cd43}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Source Files\main.cpp">
@@ -21,5 +24,16 @@
     <ClInclude Include="Source Files\Core\Application.h">
       <Filter>Source Files\Core</Filter>
     </ClInclude>
+    <ClInclude Include="Source Files\Core\DXUtils.h">
+      <Filter>Source Files\Core</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="Shaders\PixelShader.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\VertexShader.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>

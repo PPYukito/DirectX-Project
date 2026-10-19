@@ -37,7 +37,7 @@ private:
 
 	UINT m_VertexCount = 0;
 
-	float m_BgColor[4] = { 0.2f, 0.2f, 0.2f, 1.0f };		// RGBA
+	float m_BgColor[4] = { 0.0f, 0.62f, 0.86f, 1.0f };		// RGBA
 
 	// Setup (InitDirectX calls the others in order)
 	bool InitDirectX();

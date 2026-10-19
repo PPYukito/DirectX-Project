@@ -293,8 +293,16 @@ bool Application::CreateVertexBuffer()
 	Vertex vertices[] =
 	{
 		{  0.0f,    0.5f },   // top
+		{  0.163f,  0.0f },   // 0.29 * 0.5625
+		{ -0.163f,  0.0f },
+
+		{  0.163f,  0.0f },
 		{  0.325f, -0.5f },   // bottom right  (0.577 (tan60) * (1080 / 1920), aspect corrected)
-		{ -0.325f, -0.5f },   // bottom left
+		{  0.0f,   -0.5f },
+
+		{ -0.163f,  0.0f },
+		{  0.0f,   -0.5f },
+		{ -0.325f, -0.5f }   // bottom left
 	};
 
 	// --- Describe the buffer (size, usage, bind flags) ---
@@ -376,8 +384,17 @@ void Application::Render()
 	UINT offset = 0;                 // start reading at the beginning of the buffer
 	m_DeviceContext->IASetVertexBuffers(0, 1, &m_VertexBuffer, &stride, &offset); // slot 0, 1 buffer
 
-	// How to connect the vertices: every 3 vertices = 1 separate triangle
+	// How to connect the vertices (exactly ONE must be active, or Draw has nothing to make)
+	// POINTLIST:     each vertex = 1 dot (always 1 pixel)                     0, 1, 2, ...
+	// LINELIST:      every 2 vertices = 1 separate line (always 1 pixel thin)  0-1, 2-3, ...
+	// LINESTRIP:     one connected line through all vertices (not closed)     0-1-2-3 ...
+	// TRIANGLELIST:  every 3 vertices = 1 separate filled triangle            0-1-2, 3-4-5, ...
+	// TRIANGLESTRIP: each new vertex makes a triangle with the previous two   0-1-2, 1-2-3, ... (4 vertices = a quad)
+	//m_DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_POINTLIST);
+	//m_DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
+	//m_DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINESTRIP);
 	m_DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	//m_DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 
 	// Which GPU programs to run: vertex shader (where each corner goes), pixel shader (color of each pixel)
 	m_DeviceContext->VSSetShader(m_VertexShader, nullptr, 0);

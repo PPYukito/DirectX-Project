@@ -297,7 +297,7 @@ bool Application::CreateVertexBuffer()
 		{ -0.163f,  0.0f },
 
 		{  0.163f,  0.0f },
-		{  0.325f, -0.5f },   // bottom right  (0.577 (tan60) * (1080 / 1920), aspect corrected)
+		{  0.325f, -0.5f },   // bottom right  (0.577 (tan60 result) * 0.5625 (1080 / 1920), aspect corrected)
 		{  0.0f,   -0.5f },
 
 		{ -0.163f,  0.0f },
@@ -368,6 +368,8 @@ void Application::Render()
 	viewport.MinDepth = 0.0f;
 	viewport.MaxDepth = 1.0f;
 
+	// Rasterizer (RS): map the GPU's -1..+1 onto this pixel area (the whole client area),
+	// so it knows which pixels each triangle covers
 	m_DeviceContext->RSSetViewports(1, &viewport);
 
 	// --- Plug in the canvas (Present unplugs it every frame with the flip model) ---
